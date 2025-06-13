@@ -155,4 +155,29 @@ impl Network {
         }
         loss
     }
+
+    /// 推理接口：输入单个样本，返回预测结果
+    pub fn predict(&self, input: &Vec<f64>) -> Vec<f64> {
+        self.forward(input)
+    }
+
+    /// 批量训练接口：输入多组样本，指定轮数和学习率
+    /// inputs: Vec<输入样本>
+    /// targets: Vec<目标输出>
+    /// epochs: 训练轮数
+    /// lr: 学习率
+    /// 返回每轮的平均损失
+    pub fn fit(&mut self, inputs: &Vec<Vec<f64>>, targets: &Vec<Vec<f64>>, epochs: usize, lr: f64) -> Vec<f64> {
+        assert_eq!(inputs.len(), targets.len(), "输入和目标数量必须一致");
+        let mut losses = Vec::new();
+        for epoch in 0..epochs {
+            let mut total_loss = 0.0;
+            for (input, target) in inputs.iter().zip(targets.iter()) {
+                total_loss += self.train(input, target, lr);
+            }
+            let avg_loss = total_loss / inputs.len() as f64;
+            losses.push(avg_loss);
+        }
+        losses
+    }
 }

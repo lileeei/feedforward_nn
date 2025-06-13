@@ -14,20 +14,25 @@ fn main() {
         vec![Activation::ReLU, Activation::Tanh],
         Activation::Sigmoid,
     );
-    // 构造输入和目标输出
-    let input = vec![0.5, -0.2];
-    let target = vec![1.0];
-    // 训练前的输出
-    let output_before = net.forward(&input);
-    println!("Before training: Output = {:?}", output_before);
-    // 训练若干步
-    for epoch in 0..1000 {
-        let loss = net.train(&input, &target, 0.1);
+    // 构造批量输入和目标输出
+    let inputs = vec![vec![0.5, -0.2], vec![1.0, 0.0], vec![0.0, 1.0]];
+    let targets = vec![vec![1.0], vec![0.0], vec![0.0]];
+    // 训练前的推理
+    for (i, input) in inputs.iter().enumerate() {
+        let pred = net.predict(input);
+        println!("Sample {} before training: input = {:?}, pred = {:?}", i, input, pred);
+    }
+    // 批量训练
+    let losses = net.fit(&inputs, &targets, 1000, 0.1);
+    println!("训练过程损失（每200轮）：");
+    for (epoch, loss) in losses.iter().enumerate() {
         if epoch % 200 == 0 {
             println!("Epoch {}: loss = {}", epoch, loss);
         }
     }
-    // 训练后的输出
-    let output_after = net.forward(&input);
-    println!("After training: Output = {:?}", output_after);
+    // 训练后的推理
+    for (i, input) in inputs.iter().enumerate() {
+        let pred = net.predict(input);
+        println!("Sample {} after training: input = {:?}, pred = {:?}", i, input, pred);
+    }
 }
