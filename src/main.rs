@@ -35,4 +35,14 @@ fn main() {
         let pred = net.predict(input);
         println!("Sample {} after training: input = {:?}, pred = {:?}", i, input, pred);
     }
+    // 保存模型
+    net.save("model.json").expect("保存模型失败");
+    println!("模型已保存到 model.json");
+    // 加载模型
+    let loaded_net = network::Network::load("model.json").expect("加载模型失败");
+    println!("加载模型后推理：");
+    for (i, input) in inputs.iter().enumerate() {
+        let pred = loaded_net.predict(input);
+        println!("Sample {} loaded model pred = {:?}", i, pred);
+    }
 }

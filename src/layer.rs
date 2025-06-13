@@ -1,4 +1,7 @@
+use serde::{Serialize, Deserialize};
+
 // Layer 表示神经网络中的一层，包括权重和偏置
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Layer {
     /// 权重矩阵，形状为 [输出神经元数][输入神经元数]
     pub weights: Vec<Vec<f64>>,
@@ -26,4 +29,4 @@ impl Layer {
             w_row.iter().zip(input.iter()).map(|(w, i)| w * i).sum::<f64>() + b
         }).collect()
     }
-}
+} 

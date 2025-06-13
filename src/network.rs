@@ -1,7 +1,11 @@
 use crate::activation::{Activation, activate_derivative_vec, activate_vec};
 use crate::layer::Layer;
+use serde::{Serialize, Deserialize};
+use std::fs::File;
+use std::io::{Write, Read};
 
 /// Network 表示一个支持多层隐藏层和激活函数模块化的前馈神经网络
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Network {
     /// 输入层神经元数
     pub input_size: usize,
@@ -179,5 +183,22 @@ impl Network {
             losses.push(avg_loss);
         }
         losses
+    }
+
+    /// 保存模型到指定路径（JSON 格式）
+    pub fn save(&self, path: &str) -> std::io::Result<()> {
+        let json = serde_json::to_string_pretty(self).unwrap();
+        let mut file = File::create(path)?;
+        file.write_all(json.as_bytes())?;
+        Ok(())
+    }
+
+    /// 从指定路径加载模型（JSON 格式）
+    pub fn load(path: &str) -> std::io::Result<Self> {
+        let mut file = File::open(path)?;
+        let mut json = String::new();
+        file.read_to_string(&mut json)?;
+        let net: Self = serde_json::from_str(&json).unwrap();
+        Ok(net)
     }
 }

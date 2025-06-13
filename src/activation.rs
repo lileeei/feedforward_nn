@@ -1,4 +1,7 @@
+use serde::{Serialize, Deserialize};
+
 /// 激活函数枚举，支持多种激活方式
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Activation {
     Sigmoid,
     ReLU,
