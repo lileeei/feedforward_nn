@@ -1,10 +1,6 @@
-# 神经网络训练与反向传播详解
+# 神经网络 `train` 过程详解笔记
 
-本文件结合项目代码，系统讲解前馈神经网络的训练过程，重点说明反向传播、delta 计算、权重更新等核心原理，并配合关键代码片段逐步解释。
-
----
-
-## 1. 训练流程总览
+## 1. 训练步骤总览
 
 一次训练（`train` 方法）包括：
 - **前向传播（Forward Pass）**：依次通过每层，记录每层输入和线性输出。
@@ -15,7 +11,11 @@
 
 ## 2. 前向传播
 
-### 2.1 代码片段
+- 依次通过每个隐藏层和输出层，先做线性变换（加权求和+偏置），再做激活函数。
+- 记录每层激活后的输出（`layer_inputs`，包括输入层）和每层线性变换的输出（`layer_outputs`，未激活前）。
+- 这些记录为反向传播做准备。
+
+**代码片段：**
 ```rust
 let mut out = input.clone();
 layer_inputs.push(out.clone());
@@ -32,27 +32,15 @@ let output = activate_vec(&output_raw, &self.output_activation);
 layer_inputs.push(output.clone());
 ```
 
-### 2.2 说明
-- `layer.forward(&out)`：对输入做线性变换（加权求和+偏置）。
-- `activate_vec(&out, act)`：对线性输出应用激活函数。
-- `layer_inputs` 记录每层激活后的输出（包括输入层）。
-- `layer_outputs` 记录每层线性变换（未激活前的输出）。
-- 这些记录为反向传播做准备。
-
 ---
 
 ## 3. 损失函数
 
 以均方误差（MSE）为例：
 
-\[
+$$
 \text{MSE} = \frac{1}{n} \sum_{i=1}^n (o_i - t_i)^2
-\]
-
-### 3.1 代码片段
-```rust
-let loss = Network::mse_loss(&output, target);
-```
+$$
 
 ---
 
@@ -60,7 +48,17 @@ let loss = Network::mse_loss(&output, target);
 
 ### 4.1 输出层 delta 计算
 
-#### 代码片段
+输出层每个神经元的误差信号（delta）：
+
+$$
+\delta^L_i = (a^L_i - t_i) \cdot f'(z^L_i)
+$$
+
+- $a^L_i$：输出层激活值
+- $t_i$：目标值
+- $f'(z^L_i)$：激活函数对线性输出的导数
+
+**代码片段：**
 ```rust
 let delta = output
     .iter()
@@ -70,15 +68,31 @@ let delta = output
     .collect::<Vec<f64>>();
 ```
 
-#### 说明
-- `output`：输出层激活值
-- `target`：目标值
-- `activate_derivative_vec`：输出层激活函数的导数
-- 每个神经元的 delta = (输出 - 目标) × 激活函数导数
+---
 
 ### 4.2 输出层参数更新
 
-#### 代码片段
+权重和偏置的梯度推导如下：
+
+$$
+\frac{\partial L}{\partial w_{ij}^L} = \delta^L_i \cdot a^{L-1}_j
+$$
+$$
+\frac{\partial L}{\partial b_i^L} = \delta^L_i
+$$
+
+- $a^{L-1}_j$：输出层的输入（上一层激活输出）
+
+权重和偏置的更新公式：
+
+$$
+w_{ij}^L := w_{ij}^L - \eta \cdot \delta^L_i \cdot a^{L-1}_j
+$$
+$$
+b_i^L := b_i^L - \eta \cdot \delta^L_i
+$$
+
+**代码片段：**
 ```rust
 for i in 0..self.output.weights.len() {
     for j in 0..self.output.weights[0].len() {
@@ -88,19 +102,39 @@ for i in 0..self.output.weights.len() {
 }
 ```
 
-#### 说明
-- `delta[i]`：输出层第 i 个神经元的误差信号
-- `layer_inputs[layer_inputs.len() - 2][j]`：输出层的输入（上一层激活输出）
-- 权重更新公式：
-  \[
-  w_{ij} := w_{ij} - \eta \cdot \delta_i \cdot a_j
-  \]
-- 偏置更新公式：
-  \[
-  b_i := b_i - \eta \cdot \delta_i
-  \]
+---
 
 ### 4.3 反向传播到隐藏层
+
+#### 数学公式
+
+隐藏层 delta 的递推公式：
+
+$$
+\delta^l_i = \left(\sum_j w^{l+1}_{ji} \delta^{l+1}_j \right) \cdot f'(z^l_i)
+$$
+
+- $w^{l+1}_{ji}$：下一层权重
+- $\delta^{l+1}_j$：下一层 delta
+- $f'(z^l_i)$：本层激活函数导数
+
+权重和偏置的梯度：
+
+$$
+\frac{\partial L}{\partial w_{ij}^l} = \delta^l_i \cdot a^{l-1}_j
+$$
+$$
+\frac{\partial L}{\partial b_i^l} = \delta^l_i
+$$
+
+权重和偏置的更新：
+
+$$
+w_{ij}^l := w_{ij}^l - \eta \cdot \delta^l_i \cdot a^{l-1}_j
+$$
+$$
+b_i^l := b_i^l - \eta \cdot \delta^l_i
+$$
 
 #### 代码片段
 ```rust
@@ -129,27 +163,59 @@ for l in (0..self.hidden_layers.len()).rev() {
 }
 ```
 
-#### 详细说明
-- **delta 递推公式**：
-  \[
-  \delta^l_i = \left( \sum_j w^{l+1}_{ji} \delta^{l+1}_j \right) \cdot f'(z^l_i)
-  \]
-  - `sum += next_layer.weights[j][i] * next_delta[j];` 计算了来自上一层的误差信号加权和。
-  - `d_act[i]` 是本层激活函数的导数。
-- **权重更新**：
-  - `self.hidden_layers[l].weights[i][j] -= lr * new_delta[i] * layer_inputs[l][j];`
-  - 其中 `layer_inputs[l][j]` 是本层输入（上一层激活输出），即 \(a^{l-1}_j\)。
-- **偏置更新**：
-  - `self.hidden_layers[l].biases[i] -= lr * new_delta[i];`
-- **递推**：
-  - `next_layer` 和 `next_delta` 递推到前一层，继续反向传播。
+---
 
-#### 为什么要乘以 `layer_inputs[l][j]`？
-- 这是权重梯度的来源：
-  \[
-  \frac{\partial L}{\partial w_{ij}} = \delta^l_i \cdot a^{l-1}_j
-  \]
-- 只有这样，权重的更新方向才是"让损失变小"的方向。
+### 4.4 为什么权重更新要乘以 `layer_inputs[l][j]`？
+
+#### 数学推导
+
+对于第 l 层第 i 个神经元的第 j 个权重 $w_{ij}^l$：
+
+$$
+z_i^l = \sum_j w_{ij}^l a_j^{l-1} + b_i^l
+$$
+$$
+a_i^l = f(z_i^l)
+$$
+$$
+\frac{\partial L}{\partial w_{ij}^l} = \frac{\partial L}{\partial z_i^l} \cdot \frac{\partial z_i^l}{\partial w_{ij}^l} = \delta_i^l \cdot a_j^{l-1}
+$$
+
+- $\delta_i^l$：当前神经元的误差信号
+- $a_j^{l-1}$：本层输入（上一层激活输出）
+
+#### 直观理解
+
+- delta 反映了该神经元对损失的敏感度
+- 输入越大，权重的变化对输出影响越大，梯度也越大
+- 两者相乘，反映了"当前权重的微小变化会对损失造成多大影响"
+
+#### 代码映射
+
+```rust
+self.hidden_layers[l].weights[i][j] -= lr * new_delta[i] * layer_inputs[l][j];
+```
+- `new_delta[i]` 就是 $\delta_i^l$
+- `layer_inputs[l][j]` 就是 $a_j^{l-1}$
+
+#### 举例说明
+
+假设：
+- 某一层有 2 个输入（上一层输出为 [x_1, x_2]）
+- 当前神经元的 delta 为 0.5
+- 学习率为 0.1
+
+则第一个权重的更新为：
+
+$$
+w_{i1} := w_{i1} - 0.1 \times 0.5 \times x_1
+$$
+
+#### 物理/几何直观
+
+- 权重的作用是"放大/缩小"输入信号
+- 只有输入信号大时，权重的调整才会显著影响输出
+- 反向传播时，只有那些"真正参与"了输出的输入，才会对权重产生显著的梯度
 
 ---
 
@@ -158,4 +224,4 @@ for l in (0..self.hidden_layers.len()).rev() {
 - 反向传播的本质是链式法则，delta 递推，参数按梯度下降更新
 - 权重更新必须乘以本层输入（上一层激活），即 `layer_inputs[l][j]`
 - 偏置更新只需乘以 delta
-- 代码实现严格遵循数学推导，支持多层网络和多种激活函数 
+- 代码实现严格遵循数学推导，支持多层网络和多种激活函数
